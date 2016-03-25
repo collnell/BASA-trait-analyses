@@ -8,12 +8,17 @@ setwd("/Users/colleennell/Documents/R")
 traitlsms.water <-read.csv("/Users/colleennell/Documents/R/basa_traits/data/basa_traits_fxh20.csv")
 traitlsms.fam<- read.csv("/Users/colleennell/Documents/R/basa_traits/data/basa_traits_fx_shiny.csv")
 sexmeans<-read.csv("/Users/colleennell/Documents/R/basa_traits/data/basa_traits_sexmeansge.csv")
+GE.grow<-read.csv("/Users/colleennell/Documents/R/basa_traits/data/basa_traits_GE_grow.csv")
+
 traitlsms.fam$FAM<-as.factor(traitlsms.fam$FAM)
 # Define server logic required to plot various variables against
 # mpg
 shinyServer(function(input, output) {
   traitReactive <- reactive({input$trait
   })
+    output$mytable1 = renderTable({
+      GE.grow
+    })
 
   # Generate a plot of the requested variable against mpg and
   # only include outliers if requested
