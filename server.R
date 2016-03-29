@@ -6,6 +6,8 @@ library(cowplot)#plot arrangment
 library(plotrix)#standard error calculations
 library(DT)
 library(ggthemes)
+library(GGally)
+
 set.seed(300)
 theme_set(theme_bw())##removing this creates error with the theme and doesnt put out the both water treats
 
@@ -53,7 +55,12 @@ shinyServer(function(input, output) {
       paste("Do the sexes differ in",input$trait)
     })
     output$corrplot<-renderPlot({
-      
+      corrtrait = input$trade
+      ggpairs(traitlsms.fam[,c("N.shoot.lsm","N.terps.lsm","SLA.lsm","resist.lsm","tough.lsm.x","SEX")],
+              title="BASA Traits",
+              upper=list(continuous="cor",combo="box",discrete="ratio"),
+              lower=list(continuous="smooth",combo="facetdensity",discrete="facetbar"),
+              aes(colour=SEX))
     })
     output$famplots <- renderPlot({
       # Create long form subset of the data
@@ -202,14 +209,15 @@ shinyServer(function(input, output) {
     growranky<-interaction(reorder(traitlsms.fam$FAM,traitlsms.fam$shootes),traitlsms.fam$SEX)
     growvary<-ggplot(traitlsms.fam,aes_string(x=growranky,y=traitlsms.fam$shootes,color="SEX"))+
       geom_point(size=3)+
+      geom_errorbar(ymin=traitlsms.fam$shootes-.2,ymax=traitlsms.fam$shootes+.2,width=.3)+
       theme_bw()+
       labs(x="Genotype (rank)",y="Growth Plasticity",color="Plant Sex")+
       scale_color_brewer(palette=c("Set1"))+
       theme(panel.border = element_blank(),axis.text.x=element_blank(),legend.position="none",text=element_text(size=18,face = "plain",margin = margin(), debug = FALSE),panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.line = element_line(size=2,color = "black"))+
       scale_y_continuous(limits = c(-.6, 1.5))
-    growsexy<-ggplot(sexmeans,aes(x=sexmeans$SEX,y=sexmeans$shootESmean,color=sexmeans$SEX))+
-      geom_point(size=6)+
-      geom_errorbar(aes(ymin=(sexmeans$shootESmean-sexmeans$shootESse),ymax=(sexmeans$shootESmean+sexmeans$shootESse)),width=.1)+
+    growsexy<-ggplot(traitlsms.fam,aes(x=traitlsms.fam$SEX,y=traitlsms.fam$shootes,color=SEX))+
+      stat_summary(fun.y="mean",geom="point",size=6)+
+      stat_summary(fun.data=mean_se,geom="errorbar",width=.3)+
       theme_bw()+
       scale_color_brewer(palette=c("Set1"))+
       labs(x="Plant Sex",y=" ",color="Plant Sex")+
@@ -220,6 +228,7 @@ shinyServer(function(input, output) {
     growranky<-interaction(reorder(traitlsms.fam$FAM,traitlsms.fam$terpses),traitlsms.fam$SEX)
     growvary<-ggplot(traitlsms.fam,aes_string(x=growranky,y=traitlsms.fam$terpses,color="SEX"))+
       geom_point(size=3)+
+      geom_errorbar(ymin=traitlsms.fam$terpses-.2,ymax=traitlsms.fam$terpses+.2,width=.3)+
       theme_bw()+
       labs(x="Genotype (rank)",y="Terpene Plasticity",color="Plant Sex")+
       scale_color_brewer(palette=c("Set1"))+
@@ -227,7 +236,7 @@ shinyServer(function(input, output) {
       theme(panel.border = element_blank(),axis.text.x=element_blank(),legend.position="none",text=element_text(size=18, face = "plain",margin = margin(), debug = FALSE),panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.line = element_line(size=2,color = "black"))
     growsexy<-ggplot(traitlsms.fam,aes(x=traitlsms.fam$SEX,y=traitlsms.fam$terpses,color=traitlsms.fam$SEX))+
       stat_summary(fun.y="mean",geom="point",size=6)+
-      stat_summary(fun.data=mean_se,geom="errorbar",width=.1)+
+      stat_summary(fun.data=mean_se,geom="errorbar",width=.3)+
       theme_bw()+
       scale_color_brewer(palette=c("Set1"))+
       labs(x="Plant Sex",y=" ",color="Plant Sex")+
