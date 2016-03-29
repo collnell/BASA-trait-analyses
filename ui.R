@@ -20,8 +20,15 @@ shinyUI(fluidPage(
           radioButtons("terpswater","Pick treatment to plot:",choices=c("Water","No water","Both treatments"),selected="No water")
         ),
       conditionalPanel(
-        condition="input.tabs=='Trade-offs'",
+        condition="input.tabs=='Correlations'",
         checkboxGroupInput("trade","Select traits for correlations:",choices=c("Growth" = "N.shoot.lsm","Terpenes" = "N.terps.lsm","SLA"="SLA.lsm","%H20"="H20.lsm","leaf toughness"="tough.lsm.x","CN"="CN.lsm","WUE"="WUE.lsm","flowers"="flower.lsm","Resistance"="resist.lsm","%N"="perN.lsm"))
+      ),
+      conditionalPanel(
+        condition="input.tabs=='Resistance'",
+        selectInput("vresist", "Select trait to test against 'resistance':",
+                    list("Growth" = "N.shoot.lsm","Terpenes" = "N.terps.lsm","SLA"="SLA.lsm","%H20"="H20.lsm","leaf toughness"="tough.lsm.x","CN"="CN.lsm","WUE"="WUE.lsm","flowers"="flower.lsm","%N"="perN.lsm")),
+        checkboxGroupInput("herbyear","Select sampling year for herbivore data:",choices=c("2010","2011")),
+        checkboxGroupInput("resist","Define arthropod taxa used in resistance:",choices=c("Hemiptera","Diptera","Hymenoptera","Pscoptera","Coleoptera","Lepidoptera"))
       )
     ),
 
@@ -47,7 +54,7 @@ shinyUI(fluidPage(
         ),
         tabPanel("Plasticity",
                  br(),
-                 h4("Is there genetic variation in trait plasticity?"),
+                 h4("Do sexes differ in trait plasticity?"),
                  br(),
                  plotOutput("plasticplots",height="300",width="1000"),
                  br(),
@@ -59,11 +66,12 @@ shinyUI(fluidPage(
                  br()
         
         ),
-        tabPanel("Trade-offs",
+        tabPanel("Correlations",
                  br(),
-                 h4("How are BASA traits correlated?"),
+                 h4("Are traits correlated?"),
+                 p("(Figure takes 30 seconds to load)"),
                  br(),
-                 plotOutput("corrplot"),
+                 plotOutput("corrplot",width="950",height="800"),
                  br()
         ),
         tabPanel("Resistance",
