@@ -1,0 +1,136 @@
+####BASA traits
+###Resistance analyses
+
+library(dplyr)
+library(ggplot2)
+library(reshape2)
+
+library(fitdistrplus)#other dist stuff
+library(logspline)
+
+setwd("/Users/colleennell/Documents/R/basa_traits/data/")
+##herbivore data
+IDS<-read.csv("BASA_arth_ids.csv")
+herbdata2010<-read.csv("BASA_arth_2010.csv")
+herbdata2011<-read.csv("BASA_arth_2011.csv")
+traits<-read.csv("BASA_traits_raw.csv") ##contains grouping data (FAM, WATER, SEX)
+
+##on the df's rows (ID) is the plant ID
+##in yr data, cols = proposed ID on ID df
+##1. transpose yr data so cols = samples/plantID, rows= arthopod id (proposedID)
+##2. merge yr data with IDS by proposed ID, so that each arthropod id is associated with order, family, feeding, and guild
+##these groupings can then be used to collapse data for each year 
+#2010
+herbdata2010<-herbdata2010[-c(233,234),]
+data2010 =setNames(data.frame(t(herbdata2010[,-1])),herbdata2010[,1])#transpose
+data2010<-cbind(ID = rownames(data2010),data2010)#fix rownames as column forplant ID
+rownames(data2010)<-NULL
+data2010<-data2010[-c(236,237,238),]##removing sum and extra rows from excel
+IDS$ID<-as.factor(IDS$Proposed.ID)
+
+#2011
+data2011 =setNames(data.frame(t(herbdata2011[,-1])),herbdata2011[,1])#transpose
+data2011<-cbind(ID = rownames(data2011),data2011)#fix rownames as column forplant ID
+rownames(arth2011)<-NULL
+
+##########################
+###collapse data into groups- cna be changed by interests
+##merge grouping data based on grouping variable of interest to summarize herbivore data for
+arth2010<-right_join(IDS[,c("ID","Order","Feeding")],by=c("ID"),data2010) #merge with ID df of selected gtaxonomic/trophic grouping to use
+##set up with grouping on left side of frame- important later when selecting cols for summarize_each
+
+##for all cols calculate grouping total abundance
+#use summarize_each?
+byfeed2010<-arth2010 %>%
+  group_by(Feeding) %>%#group by category of interest
+  filter(Feeding=all(!is.na(Feeding)))%>%#remove
+  summarize_each(funs(sum),`1`:`459`) #calculate total abundance across all ID's for all plant ID cols (max=)
+View(byfeed2010)
+byfeed2010<-byfeed2010[-1,]
+#why is there an unamed row on the top?
+
+##do the same for morphospecies richness
+byfeed2010rich<-arth2010 %>%
+  group_by(Feeding) %>%
+  filter(Feeding=all(!is.na(Feeding)))%>%
+  summarize_each(funs(length(.[.>0])))##count number of ID's that were present in sample
+View(byfeed2010rich)#ID col tells total richness in each grouping, remove before transposing
+
+##go back to top and redefine arth2010, and join "Order"
+##by order
+byord2010<-arth2010 %>%
+  group_by(Order) %>%#group by category of interest
+  filter(Order=all(!is.na(Order)))%>%#remove
+  summarize_each(funs(sum),`1`:`459`) #calculate total abundance across all ID's for all plant ID cols (max=)
+View(byord2010)
+
+##with feeding guilds withing order 
+ordfeed2010<-arth2010 %>%
+  group_by(Order,Feeding) %>%#group by category of interest
+  filter(Order=all(!is.na(Order)))%>%#remove
+  summarize_each(funs(sum),`1`:`459`) #calculate total abundance across all ID's for all plant ID cols (max=)
+View(byord2010feed)
+
+#############################################################################################
+##transpose frome back so samples are rows, grouping is cols
+byfeeding2010<-as.data.frame(t(byfeed2010[,-1])) #transpose
+colnames(byfeeding2010)<-byfeed2010$Feeding#make grouping as col names
+byfeeding2010<-cbind(ID = rownames(byfeeding2010),byfeeding2010) #make plant ID a column
+rownames(byfeeding2010)<-NULL #remove rownames
+View(byfeeding2010)
+
+#can now make additive columns if desired (eg herbs+detrit)
+##bind plant treatment data to df from 'traits'
+View(traits)
+##add blocking factor
+traits$BLOCK<-ifelse(traits$ROW>=22 & traits$COL>=12,"12",
+                     ifelse(traits$ROW>=22 & traits$COL>=7 & traits$COL<=11,"11",
+                     ifelse(traits$ROW>=22 & traits$COL<=6,"10",
+                     ifelse(traits$ROW>=15 & traits$ROW<=21 & traits$COL>=12,"9",
+                     ifelse(traits$ROW>=15 & traits$ROW<=21 & traits$COL<=11 & traits$COL>=7,"8",
+                     ifelse(traits$ROW>=15 & traits$ROW<=21 & traits$COL<=6,"7",
+                     ifelse(traits$ROW>=8 & traits$ROW<=14 & traits$COL>=12,"6",
+                     ifelse(traits$ROW>=8 & traits$ROW<=14 & traits$COL<=11 & traits$COL>=7,"5",
+                     ifelse(traits$ROW>=8 & traits$ROW<=14 & traits$COL<=6,"4",
+                     ifelse(traits$ROW<=7 & traits$COL>=12,"3",
+                     ifelse(traits$ROW<=7 & traits$COL<=11 & traits$COL>=7,"2",
+                     ifelse(traits$ROW<=7 & traits$COL<=6,"1",NA
+                     ))))))))))))
+byfeeding2010$ID<-as.factor(byfeeding2010$ID)
+traits$ID<-as.factor(traits$ID)
+feed2010<-left_join(byfeeding2010,traits[,c("ID","FAM","SEX","WATER","ROW","BLOCK")])
+View(feed2010)
+###OK now df is ready for actual analyses
+############################################################################################################
+##calculate resistence
+feed2010$resist<-(1/(feed2010$Herb))
+##does resistance vary with G*E?
+model1<-lmer(resist~WATER*FAM+(1|BLOCK),data=feed2010,na.action=na.omit,REML=F) #model
+mod1.ps<-mixed(formula(model1),data=model1@frame,method="PB",args.test=list(nsim=1000),test.intercept=T) #should boost the nsim but takes longer
+print(mod1.ps)
+#test residuals
+test.resids<-resid(model1)
+shapiro.test(test.resids)
+hist(test.resids,30)
+qqnorm(test.resids)
+qqline(test.resids)
+plot(density(feed2010$resist))
+descdist(as.numeric(na.omit(feed2010$resist,discrete=F)))
+##resistence is bound by 0 and 1, should be a negative binomial or poisson?
+
+
+
+
+###########################################################################################
+##another method: melting
+arthmelt=melt(arth2010,id=c("Order","ID"))#this creates long format of the data:  a 4 col df with athropod ID, family, plant ID, abundance
+str(arthmelt)
+View(arthmelt)##variable is the sample #
+
+arthmelt<-arthmelt%>%
+  filter(variable=)
+
+grouped<-group_by(arthmelt,Order, variable)
+summarize(grouped,abun=mean(value))
+
+
