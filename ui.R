@@ -3,7 +3,7 @@ library(shiny)
 shinyUI(fluidPage(
   
   # Application title
-  titlePanel("BASA trait variation analyses"),
+  titlePanel("BASA common garden traits"),
   sidebarLayout(
     sidebarPanel(
       conditionalPanel(
@@ -20,16 +20,20 @@ shinyUI(fluidPage(
           radioButtons("terpswater","Pick treatment to plot:",choices=c("Water","No water","Both treatments"),selected="No water")
         ),
       conditionalPanel(
-        condition="input.tabs=='Trade-offs'",
+        condition="input.tabs=='lsms'",
         checkboxGroupInput("trade","Select traits for correlations:",choices=c("Growth" = "N.shoot.lsm","Terpenes" = "N.terps.lsm","SLA"="SLA.lsm","%H20"="H20.lsm","leaf toughness"="tough.lsm.x","CN"="CN.lsm","WUE"="WUE.lsm","flowers"="flower.lsm","Resistance"="resist.lsm","%N"="perN.lsm"))
-      )
-    ),
+      ),
+      conditionalPanel(
+        condition="input.tabs=='Resistance'",
+        selectInput("vresist", "Select trait to plot against 'resistance':",
+                    list("Growth" = "shoot.lsm","Terpenes" = "terps.lsm","SLA"="SLA.lsm","%H20"="H20.lsm","leaf toughness"="tough.lsm.x","CN"="CN.lsm","WUE"="WUE.lsm","flowers"="flower.lsm","%N"="perN.lsm")))
+      ),
 
     mainPanel(
       tabsetPanel(id="tabs",
         tabPanel("Trait variation",
                  br(),
-                 h4("Do plant traits vary by genotype and watering treatment?"),
+                 h4("Genotype*Water effects"),
                  br(),
                  plotOutput("famplots",height="300",width="1000"),
                  br(),
@@ -47,32 +51,45 @@ shinyUI(fluidPage(
         ),
         tabPanel("Plasticity",
                  br(),
-                 h4("Is there genetic variation in trait plasticity?"),
+                 h4("Genotype*Water interaction"),
                  br(),
                  plotOutput("plasticplots",height="300",width="1000"),
                  br(),
                  br(),
                  h4("Trait plasticity = ln(water treatment/no water)"),
                  br(),
-                 dataTableOutput("estests",width="400"),
+                 dataTableOutput("estests"),
                  br(),
                  br()
         
         ),
-        tabPanel("Trade-offs",
+        tabPanel("lsms",
                  br(),
-                 h4("How are BASA traits correlated?"),
+                 h4("Quick look at lsmeans"),
+                 p("(Figure takes 30 seconds to load)"),
                  br(),
-                 plotOutput("corrplot"),
+                 plotOutput("corrplot",width="950",height="800"),
                  br()
         ),
         tabPanel("Resistance",
                  br(),
-                 h4("Does genetic variation in traits influence plant resistance?"),
+                 h4("Resistance = log(1/herbivore abundance)"),
                  br(),
-                 plotOutput("resistplot"),
+                 plotOutput("resistplot",width="500",height="500"),
+                 br(),
+                 dataTableOutput("resistGE"),
+                 br(),
+                 br(),
+                 dataTableOutput("resistaov"),
+                 br(),
                  br()
-        )
+        ),
+        tabPanel("Herbivore community",
+                 br(),
+                 h4("Does community composition vary with plant genotype? Sex? Treatment?"),
+                 br(),
+                 plotOutput(""),
+                 br(),
       )
     )
   )
