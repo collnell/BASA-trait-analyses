@@ -26,9 +26,14 @@ shinyUI(fluidPage(
       conditionalPanel(
         condition="input.tabs=='Resistance'",
         selectInput("vresist", "Select trait to plot against 'resistance':",
-                    list("Growth" = "shoot.lsm","Terpenes" = "terps.lsm","SLA"="SLA.lsm","%H20"="H20.lsm","leaf toughness"="tough.lsm.x","CN"="CN.lsm","WUE"="WUE.lsm","flowers"="flower.lsm","%N"="perN.lsm")))
+                    list("Growth" = "shoot.lsm","Terpenes" = "terps.lsm","SLA"="SLA.lsm","%H20"="H20.lsm","leaf toughness"="tough.lsm.x","CN"="CN.lsm","WUE"="WUE.lsm","flowers"="flower.lsm","%N"="perN.lsm"))
       ),
-
+      conditionalPanel(
+        condition="input.tabs=='Arthropods'",
+        radioButtons("testtype","Include plant sex in model?",choices=c("Yes","No"),selected="Yes"))
+      ),
+    
+     
     mainPanel(
       tabsetPanel(id="tabs",
         tabPanel("Trait variation",
@@ -58,7 +63,7 @@ shinyUI(fluidPage(
                  br(),
                  h4("Trait plasticity = ln(water treatment/no water)"),
                  br(),
-                 dataTableOutput("estests"),
+                 verbatimTextOutput(outputId = "estests"),
                  br(),
                  br()
         
@@ -84,13 +89,22 @@ shinyUI(fluidPage(
                  br(),
                  br()
         ),
-        tabPanel("Herbivore community",
+        tabPanel("Arthropods",
                  br(),
-                 h4("Does community composition vary with plant genotype? Sex? Treatment?"),
+                 h4("Arthropod trophic groups"),
                  br(),
-                 plotOutput(""),
+                 plotOutput("herbpred",width="500"),
+                 p("Fig. Relationship between arthropod herbivores and predators sample from common garden plants."),
                  br(),
+                 p("Model Summary"),
+                 verbatimTextOutput(outputId = "raw_summary_phsex"),
+                 br(),
+                 br(),
+                 p("Using residuals from the line pred~herb"),
+                 br(),
+                 br()
       )
     )
   )
 ))
+)

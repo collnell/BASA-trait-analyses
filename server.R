@@ -5,8 +5,10 @@ library(ggplot2)#plotting
 library(cowplot)#plot arrangment
 library(plotrix)#standard error calculations
 library(DT)
+library(dplyr)
 library(ggthemes)
 library(GGally)
+library(car)
 
 set.seed(300)
 theme_set(theme_bw())##removing this creates error with the theme and doesnt put out the both water treats
@@ -24,9 +26,39 @@ resistgetab<-read.csv("/Users/colleennell/Documents/R/basa_traits/data/basa_trai
 resistaovtab<-read.csv("/Users/colleennell/Documents/R/basa_traits/data/basa_traits_shiny_resistaov.csv")
 resistwaterlsms<-read.csv("/Users/colleennell/Documents/R/basa_traits/data/basa_traits_famwater.csv")
 resistlsms<-read.csv("/Users/colleennell/Documents/R/basa_traits/data/basa_traits_famnowater.csv")
+byfeed<-read.csv("/Users/colleennell/Documents/R/basa_traits/data/basa_traits_herb_feed.csv")
+traits<-read.csv("/Users/colleennell/Documents/R/basa_traits/data/BASA_traits_raw.csv")
 
 traitlsms.fam$FAM<-as.factor(traitlsms.fam$FAM)
 
+traits$BLOCK<-ifelse(traits$ROW>=22 & traits$COL>=12,"12",
+                     ifelse(traits$ROW>=22 & traits$COL>=7 & traits$COL<=11,"11",
+                     ifelse(traits$ROW>=22 & traits$COL<=6,"10",
+                     ifelse(traits$ROW>=15 & traits$ROW<=21 & traits$COL>=12,"9",
+                     ifelse(traits$ROW>=15 & traits$ROW<=21 & traits$COL<=11 & traits$COL>=7,"8",
+                     ifelse(traits$ROW>=15 & traits$ROW<=21 & traits$COL<=6,"7",
+                     ifelse(traits$ROW>=8 & traits$ROW<=14 & traits$COL>=12,"6",
+                     ifelse(traits$ROW>=8 & traits$ROW<=14 & traits$COL<=11 & traits$COL>=7,"5",
+                     ifelse(traits$ROW>=8 & traits$ROW<=14 & traits$COL<=6,"4",
+                     ifelse(traits$ROW<=7 & traits$COL>=12,"3",
+                     ifelse(traits$ROW<=7 & traits$COL<=11 & traits$COL>=7,"2",
+                     ifelse(traits$ROW<=7 & traits$COL<=6,"1",NA
+                     ))))))))))))
+
+byfeed$ID<-as.factor(byfeed$ID)
+byfeed[is.na(byfeed)]<-0
+traits$ID<-as.factor(traits$ID)
+arth_data<-left_join(byfeed,traits,by="ID")
+arth_data$pred_total<-arth_data$Pred.x+arth_data$Pred.y
+arth_data$herb_total<-arth_data$Herb.x+arth_data$Herb.y
+arth_data$detrit_total<-arth_data$Detrit.x+arth_data$Detrit.y
+arth_data$omni_total<-arth_data$Omni.x+arth_data$Omni.y
+arth_data$non_total<-arth_data$Non.x+arth_data$Non.y
+arth_data$SEX<-arth_data$SEX.x
+predherbsex<-lm(pred_total~herb_total+SEX,data=arth_data)
+
+traitlsms.fam$Growth_LRR<-traitlsms.fam$shootes
+traitlsms.fam$Terpenes_LRR<-traitlsms.fam$terpses
 
 # Define server logic required to plot various variables against
 # mpg
@@ -61,7 +93,6 @@ shinyServer(function(input, output) {
       
       resplot
     })
-
     output$GEtable <- renderDataTable({
       datatable(GE.grow,rownames=F,escape=T,filter="none",class="compact cell-border",options=list(dom='tr',scrollX=T,scrollY="250px",scrollCollapse = F,columns.orderable="F"),
                 caption="Table 1. Results from linear mixed models testing for the effects of water, 
@@ -79,9 +110,11 @@ shinyServer(function(input, output) {
                 caption="Table 3. LMM results testing for sex differences in traits that showed genotype*water interaction. Analysis executed using genotype ls-means for each water treatment (2 values per genotype), and genotype included as a random effect to account for repeated measures.
                 Model: lmer(Trait~Sex*Water+(1|FAM)))")
     })
-    output$estests <- renderDataTable({
-      datatable(esttest, rownames=F,filter="none",class="compact cell-border",options=list(dom='tr',columns.orderable="F"),
-                caption="Table 4. ANOVA results testing for sexual dimorphism in trait plasticity for 'Growth' and 'Terpenes'. Tests were run on effect sizes calculated for each genotype genotype as a measure of plasticity.  Model: Anova(lm(plasticity~SEX))") 
+    output$estests <- renderPrint({
+        essext <- Anova(lm(Growth_LRR~SEX,data=traitlsms.fam),type="III")
+        print(essext)
+        essex <- Anova(lm(Terpenes_LRR~SEX,data=traitlsms.fam),type="III")
+        print(essex)
     })
     output$resistGE <- renderDataTable({
       datatable(resistgetab, rownames=F,filter="none",class="compact cell-border",options=list(dom='tr',columns.orderable="F"),
@@ -91,8 +124,16 @@ shinyServer(function(input, output) {
       datatable(resistaovtab,rownames=F,filter="none",class="compact cell-border",options=list(dom='tr',pageLength=18,columns.orderable="F"),
                 caption="Table. Regression & ANCOVA results on resistance using trait lsms.  Model1: Anova(lm(Resistance~Trait)), Model2: Anova(lm(Resistance~Trait*Water+Genotype))")
     })
-    output$text2<-renderText({
-      paste("Do the sexes differ in",input$trait)
+    output$raw_summary_phsex <- renderPrint({
+      if ((input$testtype)=="Yes"){
+      fm <- lm(pred_total~herb_total+SEX,data=arth_data)
+      print(summary(fm))
+      }
+      if ((input$testtype)=="No"){
+        fm <- lm(pred_total~herb_total,data=arth_data)
+        pval<-summary(fm)$coefficents[,4]
+        print(summary(fm))
+      }
     })
     output$corrplot<-renderPlot({
       corrtrait = input$trade
@@ -101,6 +142,19 @@ shinyServer(function(input, output) {
               upper=list(continuous="cor",combo="box",discrete="ratio"),
               lower=list(continuous="smooth",combo="facetdensity",discrete="facetbar"),
               aes(colour=SEX,alpha=.5))
+    })
+    output$herbpred<-renderPlot({
+      if ((input$testtype)=="Yes"){
+        herbpred<-ggplot(arth_data,aes(x=herb_total,y=pred_total,group=SEX,color=SEX, lty=SEX))+geom_point(size=3)+geom_smooth(method="lm",se=F)+
+          scale_color_brewer(palette=c("Set1"))+labs(x="Total Herbivores",y="Total Predators",color="Plant Sex")
+        print(herbpred)
+      }
+      if ((input$testtype)=="No"){
+        herbpred<-ggplot(arth_data,aes(x=herb_total,y=pred_total))+geom_point(size=3)+geom_smooth(method="lm",se=F)+
+          labs(x="Total Herbivores",y="Total Predators")+
+          scale_linetype_manual(values = ifelse(pval<= 0.05,"solid",ifelse(pval<=0.10 & pval>0.05,"dashed", "blank")))
+        herbpred
+      }
     })
     output$famplots <- renderPlot({
       # Create long form subset of the data
@@ -249,12 +303,12 @@ shinyServer(function(input, output) {
     growranky<-interaction(reorder(traitlsms.fam$FAM,traitlsms.fam$shootes),traitlsms.fam$SEX)
     growvary<-ggplot(traitlsms.fam,aes_string(x=growranky,y=traitlsms.fam$shootes,color="SEX"))+
       geom_point(size=3)+
-      geom_errorbar(ymin=traitlsms.fam$shootes-.2,ymax=traitlsms.fam$shootes+.2,width=.3)+
+      geom_errorbar(ymin=traitlsms.fam$shootes-traitlsms.fam$shootes.se,ymax=traitlsms.fam$shootes+traitlsms.fam$shootes.se,width=.3)+
       theme_bw()+
       labs(x="Genotype (rank)",y="Growth Plasticity",color="Plant Sex")+
       scale_color_brewer(palette=c("Set1"))+
       theme(panel.border = element_blank(),axis.text.x=element_blank(),legend.position="none",text=element_text(size=18,face = "plain",margin = margin(), debug = FALSE),panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.line = element_line(size=2,color = "black"))+
-      scale_y_continuous(limits = c(-.6, 1.5))
+      scale_y_continuous(limits = c(-4, 4))
     growsexy<-ggplot(traitlsms.fam,aes(x=traitlsms.fam$SEX,y=traitlsms.fam$shootes,color=SEX))+
       stat_summary(fun.y="mean",geom="point",size=6)+
       stat_summary(fun.data=mean_se,geom="errorbar",width=.3)+
@@ -262,17 +316,17 @@ shinyServer(function(input, output) {
       scale_color_brewer(palette=c("Set1"))+
       labs(x="Plant Sex",y=" ",color="Plant Sex")+
       theme(panel.border = element_blank(),axis.text.x=element_blank(),text=element_text(size=18, face = "plain",margin = margin(), debug = FALSE),panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.line = element_line(size=2,color = "black"))+
-      scale_y_continuous(limits = c(-.6, 1.5))
+      scale_y_continuous(limits = c(-4, 4))
     
     if ((input$trait) == "N.terps.lsm") {
     growranky<-interaction(reorder(traitlsms.fam$FAM,traitlsms.fam$terpses),traitlsms.fam$SEX)
     growvary<-ggplot(traitlsms.fam,aes_string(x=growranky,y=traitlsms.fam$terpses,color="SEX"))+
       geom_point(size=3)+
-      geom_errorbar(ymin=traitlsms.fam$terpses-.4,ymax=traitlsms.fam$terpses+.4,width=.3)+
+      geom_errorbar(ymin=traitlsms.fam$terpses-traitlsms.fam$terpses.se,ymax=traitlsms.fam$terpses+traitlsms.fam$terpses.se,width=.3)+
       theme_bw()+
       labs(x="Genotype (rank)",y="Terpene Plasticity",color="Plant Sex")+
       scale_color_brewer(palette=c("Set1"))+
-      scale_y_continuous(limits = c(-2, 2))+
+      scale_y_continuous(limits = c(-4, 4))+
       theme(panel.border = element_blank(),axis.text.x=element_blank(),legend.position="none",text=element_text(size=18, face = "plain",margin = margin(), debug = FALSE),panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.line = element_line(size=2,color = "black"))
     growsexy<-ggplot(traitlsms.fam,aes(x=traitlsms.fam$SEX,y=traitlsms.fam$terpses,color=traitlsms.fam$SEX))+
       stat_summary(fun.y="mean",geom="point",size=6)+
@@ -280,7 +334,7 @@ shinyServer(function(input, output) {
       theme_bw()+
       scale_color_brewer(palette=c("Set1"))+
       labs(x="Plant Sex",y=" ",color="Plant Sex")+
-      scale_y_continuous(limits = c(-2, 2))+
+      scale_y_continuous(limits = c(-4, 4))+
       theme(panel.border = element_blank(),axis.text.x=element_blank(),text=element_text(size=18, face = "plain",margin = margin(), debug = FALSE),panel.grid.major = element_blank(),panel.grid.minor = element_blank(),axis.line = element_line(size=2,color = "black"))
     
     }
